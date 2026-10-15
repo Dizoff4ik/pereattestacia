@@ -45,6 +45,22 @@ async function init(){
   await pool.query(schema);
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS discord_id VARCHAR(40) UNIQUE");
   await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower_unique ON users (lower(username))");
+  
+  const promoteEmail = process.env.PROMOTE_ADMIN_EMAIL?.trim().toLowerCase();
+
+  if (promoteEmail && validEmail(promoteEmail)) {
+  const result = await pool.query(
+      "UPDATE users SET role='admin' WHERE lower(email)=lower($1) RETURNING id, username, email, role",
+      [promoteEmail]
+    );
+
+    if (result.rowCount === 1) {
+      console.log("Admin role assigned to configured account.");
+    } else {
+      console.log("Admin promotion skipped: account not found.");
+    }
+  }
+
   const adminCount=await pool.query("SELECT COUNT(*)::int AS n FROM users WHERE role='admin'");
   if(Number(adminCount.rows[0].n)===0 && process.env.BOOTSTRAP_ADMIN_EMAIL && process.env.BOOTSTRAP_ADMIN_PASSWORD){
     if(!validEmail(process.env.BOOTSTRAP_ADMIN_EMAIL)||!validPassword(process.env.BOOTSTRAP_ADMIN_PASSWORD)){
